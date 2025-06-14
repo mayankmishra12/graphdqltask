@@ -1,0 +1,43 @@
+scalar Time
+
+type Query {
+  getTasks: GetTasksResponse!
+}
+
+type GetTasksResponse {
+  data: [Task!]!
+  meta: Meta!
+}
+
+type Task {
+  task_id: ID!
+  name: String!
+  description: String
+  status: String!
+  start_time: Time
+  end_time: Time
+  updated_user: String!
+  subtasks: [SubTask!]
+}
+
+type SubTask {
+  task_id: ID!
+  name: String!
+  description: String
+  status: String!
+  start_time: Time
+  end_time: Time
+  updated_user: String!
+  task_order: Int!
+  task_type: TaskType!
+}
+
+type TaskType {
+  task: String!
+  redjade_url: String
+  survey_id: String
+}
+
+type Meta {
+  total_tasks: Int!
+}
