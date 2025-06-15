@@ -1,43 +1,111 @@
+
+scalar UUID
 scalar Time
 
+# Enum for sortable fields on Task
+enum TaskSortField {
+  TASK_ORDER
+  NAME
+  START_TIME
+  END_TIME
+  UPDATED_TS
+  STATUS
+}
+
+# Enum for sort direction
+enum SortDirection {
+  ASC
+  DESC
+}
+
+# Input type for sorting tasks
+input TaskSort {
+  field: TaskSortField!
+  direction: SortDirection!
+}
+
+# Pagination information
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+# Task query root
 type Query {
-  getTasks: GetTasksResponse!
+  task(id: UUID!): Task
+  rootTasks(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    sort: [TaskSort!]
+  ): TaskConnection
 }
 
-type GetTasksResponse {
-  data: [Task!]!
-  meta: Meta!
+# Pagination connection type for tasks
+type TaskConnection {
+  edges: [TaskEdge!]!
+  pageInfo: PageInfo!
 }
 
+# Pagination edge for a task
+type TaskEdge {
+  node: Task!
+  cursor: String!
+}
+
+# Core task entity
 type Task {
-  task_id: ID!
+  taskId: UUID!
+  parentTaskId: UUID
+  taskOrder: Int!
   name: String!
   description: String
-  status: String!
-  start_time: Time
-  end_time: Time
-  updated_user: String!
-  subtasks: [SubTask!]
+  startTime: Time
+  endTime: Time
+  status: TaskStatus!
+  updatedTs: Time!
+  updatedUser: String!
+  lastModifiedProcess: String
+  lastModifiedApp: String
+  lastRequestId: String!
+  lastActionId: String
+
+  # Relationships
+  parent: Task
+  children: [Task!]!
+  taskType: TaskType
 }
 
-type SubTask {
-  task_id: ID!
-  name: String!
-  description: String
-  status: String!
-  start_time: Time
-  end_time: Time
-  updated_user: String!
-  task_order: Int!
-  task_type: TaskType!
+# Status type for a task
+type TaskStatus {
+  statusId: Int!
+  statusName: String!
 }
 
+# TaskType wraps different kinds of tasks
 type TaskType {
-  task: String!
-  redjade_url: String
-  survey_id: String
+  taskTypeId: Int!
+  taskId: UUID!
+  type: String!
+
+  # Polymorphic extensions
+  redjadeTask: RedjadeTask
+  samsSurveyTask: SamsSurveyTask
 }
 
-type Meta {
-  total_tasks: Int!
+# Redjade-specific task data
+type RedjadeTask {
+  redjadeTaskId: Int!
+  taskTypeId: Int!
+  redjadeLink: String
+}
+
+# Sams survey-specific task data
+type SamsSurveyTask {
+  taskId: Int!
+  taskTypeId: Int!
+  surveyId: String
 }

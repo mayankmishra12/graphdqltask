@@ -3,46 +3,199 @@
 package model
 
 import (
+	"bytes"
+	"fmt"
+	"io"
+	"strconv"
 	"time"
+
+	"github.com/google/uuid"
 )
 
-type GetTasksResponse struct {
-	Data []*Task `json:"data"`
-	Meta *Meta   `json:"meta"`
-}
-
-type Meta struct {
-	TotalTasks int32 `json:"total_tasks"`
+type PageInfo struct {
+	HasNextPage     bool    `json:"hasNextPage"`
+	HasPreviousPage bool    `json:"hasPreviousPage"`
+	StartCursor     *string `json:"startCursor,omitempty"`
+	EndCursor       *string `json:"endCursor,omitempty"`
 }
 
 type Query struct {
 }
 
-type SubTask struct {
-	TaskID      string     `json:"task_id"`
-	Name        string     `json:"name"`
-	Description *string    `json:"description,omitempty"`
-	Status      string     `json:"status"`
-	StartTime   *time.Time `json:"start_time,omitempty"`
-	EndTime     *time.Time `json:"end_time,omitempty"`
-	UpdatedUser string     `json:"updated_user"`
-	TaskOrder   int32      `json:"task_order"`
-	TaskType    *TaskType  `json:"task_type"`
+type RedjadeTask struct {
+	RedjadeTaskID int32   `json:"redjadeTaskId"`
+	TaskTypeID    int32   `json:"taskTypeId"`
+	RedjadeLink   *string `json:"redjadeLink,omitempty"`
+}
+
+type SamsSurveyTask struct {
+	TaskID     int32   `json:"taskId"`
+	TaskTypeID int32   `json:"taskTypeId"`
+	SurveyID   *string `json:"surveyId,omitempty"`
 }
 
 type Task struct {
-	TaskID      string     `json:"task_id"`
-	Name        string     `json:"name"`
-	Description *string    `json:"description,omitempty"`
-	Status      string     `json:"status"`
-	StartTime   *time.Time `json:"start_time,omitempty"`
-	EndTime     *time.Time `json:"end_time,omitempty"`
-	UpdatedUser string     `json:"updated_user"`
-	Subtasks    []*SubTask `json:"subtasks,omitempty"`
+	TaskID              uuid.UUID   `json:"taskId"`
+	ParentTaskID        *uuid.UUID  `json:"parentTaskId,omitempty"`
+	TaskOrder           int32       `json:"taskOrder"`
+	Name                string      `json:"name"`
+	Description         *string     `json:"description,omitempty"`
+	StartTime           *time.Time  `json:"startTime,omitempty"`
+	EndTime             *time.Time  `json:"endTime,omitempty"`
+	Status              *TaskStatus `json:"status"`
+	UpdatedTs           time.Time   `json:"updatedTs"`
+	UpdatedUser         string      `json:"updatedUser"`
+	LastModifiedProcess *string     `json:"lastModifiedProcess,omitempty"`
+	LastModifiedApp     *string     `json:"lastModifiedApp,omitempty"`
+	LastRequestID       string      `json:"lastRequestId"`
+	LastActionID        *string     `json:"lastActionId,omitempty"`
+	Parent              *Task       `json:"parent,omitempty"`
+	Children            []*Task     `json:"children"`
+	TaskType            *TaskType   `json:"taskType,omitempty"`
+}
+
+type TaskConnection struct {
+	Edges    []*TaskEdge `json:"edges"`
+	PageInfo *PageInfo   `json:"pageInfo"`
+}
+
+type TaskEdge struct {
+	Node   *Task  `json:"node"`
+	Cursor string `json:"cursor"`
+}
+
+type TaskSort struct {
+	Field     TaskSortField `json:"field"`
+	Direction SortDirection `json:"direction"`
+}
+
+type TaskStatus struct {
+	StatusID   int32  `json:"statusId"`
+	StatusName string `json:"statusName"`
 }
 
 type TaskType struct {
-	Task       string  `json:"task"`
-	RedjadeURL *string `json:"redjade_url,omitempty"`
-	SurveyID   *string `json:"survey_id,omitempty"`
+	TaskTypeID     int32           `json:"taskTypeId"`
+	TaskID         uuid.UUID       `json:"taskId"`
+	Type           string          `json:"type"`
+	RedjadeTask    *RedjadeTask    `json:"redjadeTask,omitempty"`
+	SamsSurveyTask *SamsSurveyTask `json:"samsSurveyTask,omitempty"`
+}
+
+type SortDirection string
+
+const (
+	SortDirectionAsc  SortDirection = "ASC"
+	SortDirectionDesc SortDirection = "DESC"
+)
+
+var AllSortDirection = []SortDirection{
+	SortDirectionAsc,
+	SortDirectionDesc,
+}
+
+func (e SortDirection) IsValid() bool {
+	switch e {
+	case SortDirectionAsc, SortDirectionDesc:
+		return true
+	}
+	return false
+}
+
+func (e SortDirection) String() string {
+	return string(e)
+}
+
+func (e *SortDirection) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = SortDirection(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid SortDirection", str)
+	}
+	return nil
+}
+
+func (e SortDirection) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *SortDirection) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e SortDirection) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type TaskSortField string
+
+const (
+	TaskSortFieldTaskOrder TaskSortField = "TASK_ORDER"
+	TaskSortFieldName      TaskSortField = "NAME"
+	TaskSortFieldStartTime TaskSortField = "START_TIME"
+	TaskSortFieldEndTime   TaskSortField = "END_TIME"
+	TaskSortFieldUpdatedTs TaskSortField = "UPDATED_TS"
+	TaskSortFieldStatus    TaskSortField = "STATUS"
+)
+
+var AllTaskSortField = []TaskSortField{
+	TaskSortFieldTaskOrder,
+	TaskSortFieldName,
+	TaskSortFieldStartTime,
+	TaskSortFieldEndTime,
+	TaskSortFieldUpdatedTs,
+	TaskSortFieldStatus,
+}
+
+func (e TaskSortField) IsValid() bool {
+	switch e {
+	case TaskSortFieldTaskOrder, TaskSortFieldName, TaskSortFieldStartTime, TaskSortFieldEndTime, TaskSortFieldUpdatedTs, TaskSortFieldStatus:
+		return true
+	}
+	return false
+}
+
+func (e TaskSortField) String() string {
+	return string(e)
+}
+
+func (e *TaskSortField) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = TaskSortField(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid TaskSortField", str)
+	}
+	return nil
+}
+
+func (e TaskSortField) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *TaskSortField) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e TaskSortField) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }

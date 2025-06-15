@@ -21,6 +21,19 @@ func main() {
 	if port == "" {
 		port = defaultPort
 	}
+	//ctx := context.Background()
+	//
+	//connStr := "postgres://username:password@localhost:5432/yourdb"
+	//pool, err := pgxpool.New(ctx, connStr)
+	//if err != nil {
+	//	log.Fatalf("Unable to connect to database: %v\n", err)
+	//}
+	//defer pool.Close()
+	//
+	//queries := db.New(pool) // ✅ This is correct
+	//r := &graph.Resolver{
+	//	DB: queries,
+	//}
 
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{}}))
 
