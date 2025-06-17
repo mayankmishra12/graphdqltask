@@ -12,8 +12,29 @@ import (
 )
 
 func (r *Resolver) Task(ctx context.Context, id uuid.UUID) (*model.Task, error) {
-	// TODO: Use generated GetTaskByID once added via sqlc.
-	return nil, fmt.Errorf("not implemented: Task - task")
+	fmt.Println("start processing get query")
+	row, err := r.DB.GetTaskByID(ctx, toPgxUUID(id))
+	if err != nil {
+		return nil, fmt.Errorf("task not found: %w", err)
+	}
+
+	task := &model.Task{
+		TaskID: row.TaskID.Bytes,
+		Name:   row.Name,
+		// Uncomment if you want to expose description
+		// Description: row.Description.String,
+		TaskOrder:   int32(row.TaskOrder),
+		StartTime:   toTimePtr(row.StartTime),
+		EndTime:     toTimePtr(row.EndTime),
+		UpdatedTs:   row.UpdatedTs.Time,
+		UpdatedUser: row.UpdatedUser,
+		Status: &model.TaskStatus{
+			StatusID:   row.StatusID.Int32,
+			StatusName: row.StatusName.String,
+		},
+	}
+
+	return task, nil
 }
 
 func (r *Resolver) RootTasks(ctx context.Context, first *int32, after *string, last *int32, before *string, sort []*model.TaskSort) (*model.TaskConnection, error) {
@@ -28,6 +49,17 @@ func (r *Resolver) RootTasks(ctx context.Context, first *int32, after *string, l
 		afterTime = pgtype.Timestamp{Valid: false}
 	}
 
+	//var afterTime pgtype.Timestamp
+	//if after != nil {
+	//	t, err := time.Parse(time.RFC3339, *after)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	afterTime = pgtype.Timestamp{Time: t, Valid: true}
+	//} else {
+	//	afterTime = pgtype.Timestamp{Valid: false}
+	//}
+	//
 	limit := int32(10) // default
 	if first != nil {
 		limit = *first
@@ -85,4 +117,11 @@ func toTimePtr(ts pgtype.Timestamp) *time.Time {
 		return &ts.Time
 	}
 	return nil
+}
+
+func toPgxUUID(u uuid.UUID) pgtype.UUID {
+	return pgtype.UUID{
+		Bytes: [16]byte(u[:]),
+		Valid: true,
+	}
 }

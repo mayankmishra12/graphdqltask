@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mmishra12/gqlgen-todos/internal/db"
 	"log"
 	"net/http"
 	"os"
@@ -16,26 +19,27 @@ import (
 
 const defaultPort = "8080"
 
+var dsn = "postgres://postgres:mysecretpass@localhost:5432/task?sslmode=disable"
+
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = defaultPort
 	}
-	//ctx := context.Background()
-	//
-	//connStr := "postgres://username:password@localhost:5432/yourdb"
-	//pool, err := pgxpool.New(ctx, connStr)
-	//if err != nil {
-	//	log.Fatalf("Unable to connect to database: %v\n", err)
-	//}
-	//defer pool.Close()
-	//
-	//queries := db.New(pool) // ✅ This is correct
-	//r := &graph.Resolver{
-	//	DB: queries,
-	//}
+	ctx := context.Background()
 
-	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{}}))
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		log.Fatalf("Unable to connect to database: %v\n", err)
+	}
+	defer pool.Close()
+
+	queries := db.New(pool) // ✅ This is correct
+	r := &graph.Resolver{
+		DB: queries,
+	}
+
+	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: r}))
 
 	srv.AddTransport(transport.Options{})
 	srv.AddTransport(transport.GET{})
